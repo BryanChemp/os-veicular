@@ -11,6 +11,7 @@ import { HomeScreen } from "../screens/HomeScreen";
 import FormTabs from "./tabs";
 import { CustomDrawer } from "../components/CustomDrawer";
 import CadastrarItemScreen from "../screens/CadastrarItemScreen";
+import ListaOrcamentosFinalizados from "../screens/ListaOrcamentosFinalizados";
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -64,6 +65,14 @@ function CadastrarItensStack() {
 	);
 }
 
+function ListaOrcamentosStack() {
+	return (
+		<ScreenWithMenu>
+			<ListaOrcamentosFinalizados />
+		</ScreenWithMenu>
+	);
+}
+
 export function AppDrawer() {
 	return (
 		<Drawer.Navigator
@@ -71,6 +80,7 @@ export function AppDrawer() {
 			drawerContent={(props) => <CustomDrawer {...props} />}
 		>
 			<Drawer.Screen name="HomeStack" component={HomeStack} />
+			<Drawer.Screen name="ListaOrcamentosFinalizados" component={ListaOrcamentosStack} />
 			<Drawer.Screen name="CadastrarItens" component={CadastrarItensStack} />
 		</Drawer.Navigator>
 	);

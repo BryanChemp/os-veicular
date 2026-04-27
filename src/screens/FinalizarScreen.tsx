@@ -1,25 +1,28 @@
-import React, { useContext, useState, useCallback, useEffect } from "react";
-import {
-	Text,
-	View,
-	TouchableOpacity,
-	ScrollView,
-	Alert,
-	ActivityIndicator,
-	Platform,
-} from "react-native";
+import React, { useState, useCallback, useEffect } from "react";
+import { Alert, ActivityIndicator, Platform } from "react-native";
 import styled from "styled-components/native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
-import { Asset } from "expo-asset";
 import { useNavigation } from "@react-navigation/native";
-import { OrcamentoContext } from "../context/ContextOrcamento";
+
+import { useOrcamentoAtualStore } from "../store/useOrcamentoStore";
+import { useOrcamentoPDF } from "../hooks/useOrcamentoPDF";
+import { useOrcamentosFinalizadosStore } from "../store/useOrcamentosFinalizados";
+import { getLogoBase64 } from "../utils/getLogoBase64";
 
 export default function FinalizarScreen() {
-	const contextOrcamento = useContext(OrcamentoContext);
+	const { cliente, veiculo, resetar } = useOrcamentoAtualStore();
+	const { adicionar } = useOrcamentosFinalizadosStore();
+	const {
+		gerarHTML,
+		calcularTotalServicos,
+		calcularTotalPecas,
+		calcularTotalGeral,
+	} = useOrcamentoPDF();
+
+	const [logo64, setLogo64] = useState<string | null>(null);
 	const [pdfUri, setPdfUri] = useState<string | null>(null);
-	const [logoBase, setLogoBase] = useState<string | null>(null);
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [isSharing, setIsSharing] = useState(false);
 	const navigation = useNavigation<any>();
@@ -36,117 +39,49 @@ export default function FinalizarScreen() {
 	}, [pdfUri]);
 
 	useEffect(() => {
-		converterImage64();
+		const fetchLogoBase64 = async () => {
+			const logoBase = await getLogoBase64();
+			setLogo64(logoBase);
+		};
+
+		fetchLogoBase64();
+
 		return () => {
 			limparPDF();
 		};
 	}, []);
 
-	const converterImage64 = async () => {
-		try {
-			const asset = Asset.fromModule(require("../assets/logo.jpeg"));
-			await asset.downloadAsync();
-			if (!asset.localUri) return;
-
-			const base64 = await FileSystem.readAsStringAsync(asset.localUri, {
-				encoding: FileSystem.EncodingType.Base64,
-			});
-
-			setLogoBase(`data:image/jpeg;base64,${base64}`);
-		} catch (error) {
-			console.error("Erro ao converter imagem:", error);
-		}
-	};
-
-	const calcularTotalServicos = () =>
-		contextOrcamento?.servicos.reduce((acc, item) => acc + item.valor, 0) ||
-		0;
-	const calcularTotalPecas = () =>
-		contextOrcamento?.pecas.reduce((acc, item) => acc + item.valor, 0) || 0;
-	const calcularTotalGeral = () =>
-		calcularTotalServicos() + calcularTotalPecas();
-
-	const gerarHTML = () => {
-		if (!contextOrcamento) return "";
-		const totalServicos = calcularTotalServicos();
-		const totalPecas = calcularTotalPecas();
-		const totalGeral = calcularTotalGeral();
-
-		return `
-      <html>
-        <head>
-          <style>
-            body { font-family: 'Helvetica', sans-serif; margin: 40px; color: #333; }
-            .header { display: flex; align-items: center; border-bottom: 2px solid #5A6BFF; padding-bottom: 20px; margin-bottom: 30px; }
-            .logo { max-width: 100px; margin-right: 20px; border-radius: 8px; }
-            .company-info h1 { font-size: 22px; margin: 0; color: #2D3142; }
-            .company-info p { margin: 2px 0; font-size: 13px; color: #666; }
-            .section { margin-bottom: 30px; }
-            .section h2 { font-size: 18px; color: #5A6BFF; border-bottom: 1px solid #E2E4EF; padding-bottom: 8px; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-            .info-item { font-size: 14px; margin-bottom: 5px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th { background-color: #F8F9FF; color: #5A6BFF; text-align: left; padding: 12px; font-size: 13px; border-bottom: 2px solid #E2E4EF; }
-            td { padding: 12px; border-bottom: 1px solid #EEE; font-size: 14px; }
-            .subtotal { text-align: right; margin-top: 15px; font-weight: bold; color: #2D3142; font-size: 15px; }
-            .total-geral { margin-top: 40px; padding: 25px; background-color: #F8F9FF; border-radius: 12px; border: 2px solid #5A6BFF; text-align: right; }
-            .total-geral p { margin: 0; font-size: 22px; font-weight: 800; color: #2D3142; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            ${logoBase ? `<img src="${logoBase}" class="logo" />` : ""}
-            <div class="company-info">
-              <h1>Forte Rocha Funilaria e Pintura</h1>
-              <p>Avenida Rio de Janeiro, 978 | CNPJ: 11.922.593/0001-60</p>
-              <p>(44) 3274-3849 / (44) 99860-6210</p>
-            </div>
-          </div>
-          <div class="section">
-            <h2>Dados do Cliente</h2>
-            <div class="info-grid">
-              <div class="info-item"><strong>Nome:</strong> ${contextOrcamento.cliente.nome}</div>
-              <div class="info-item"><strong>Telefone:</strong> ${contextOrcamento.cliente.telefone}</div>
-              <div class="info-item"><strong>Email:</strong> ${contextOrcamento.cliente.email}</div>
-            </div>
-          </div>
-          <div class="section">
-            <h2>Veículo</h2>
-            <div class="info-grid">
-              <div class="info-item"><strong>Modelo:</strong> ${contextOrcamento.veiculo.modelo}</div>
-              <div class="info-item"><strong>Placa:</strong> ${contextOrcamento.veiculo.placa}</div>
-              <div class="info-item"><strong>Cor:</strong> ${contextOrcamento.veiculo.cor}</div>
-              <div class="info-item"><strong>Ano:</strong> ${contextOrcamento.veiculo.ano}</div>
-            </div>
-          </div>
-          <div class="section">
-            <h2>Itens do Orçamento</h2>
-            <table>
-              <thead><tr><th>Descrição</th><th style="text-align: right;">Valor</th></tr></thead>
-              <tbody>
-                ${contextOrcamento.servicos.map((s) => `<tr><td>${s.descricao} (Serviço)</td><td style="text-align: right;">R$ ${s.valor.toFixed(2).replace(".", ",")}</td></tr>`).join("")}
-                ${contextOrcamento.pecas.map((p) => `<tr><td>${p.descricao} (Peça)</td><td style="text-align: right;">R$ ${p.valor.toFixed(2).replace(".", ",")}</td></tr>`).join("")}
-              </tbody>
-            </table>
-          </div>
-          <div class="total-geral">
-            <p>TOTAL GERAL: R$ ${totalGeral.toFixed(2).replace(".", ",")}</p>
-          </div>
-        </body>
-      </html>
-    `;
-	};
-
 	const gerarPDF = async () => {
 		if (isGenerating) return;
+
 		try {
 			setIsGenerating(true);
-			const html = gerarHTML();
+
+			const html = await gerarHTML(logo64);
 			const { uri } = await Print.printToFileAsync({ html });
+
 			setPdfUri(uri);
-			Alert.alert("Sucesso", "PDF gerado com sucesso!");
-		} catch (erro) {
-			Alert.alert("Erro", "Não foi possível gerar o PDF.");
+
+			const state = useOrcamentoAtualStore.getState();
+
+			adicionar({
+				id: Date.now().toString(),
+				cliente: state.cliente,
+				veiculo: state.veiculo,
+				servicos: state.servicos,
+				pecas: state.pecas,
+				total: calcularTotalGeral(),
+				pdfUri: uri,
+				createdAt: Date.now(),
+			});
+
+			Alert.alert("Sucesso", "PDF gerado e salvo!");
+		} catch (error: any) {
+			console.error("error", error);
+			Alert.alert(
+				"Erro",
+				"Não foi possível gerar o PDF: " + error.message,
+			);
 		} finally {
 			setIsGenerating(false);
 		}
@@ -158,7 +93,8 @@ export default function FinalizarScreen() {
 			setIsSharing(true);
 			await Sharing.shareAsync(pdfUri);
 			await limparPDF();
-			contextOrcamento?.resetarDados();
+			resetar();
+
 			navigation.navigate("Main", {
 				screen: "Home",
 			});
@@ -171,13 +107,6 @@ export default function FinalizarScreen() {
 		}
 	};
 
-	if (!contextOrcamento)
-		return (
-			<Container>
-				<ActivityIndicator size="large" color="#5A6BFF" />
-			</Container>
-		);
-
 	return (
 		<Container>
 			<HeaderSection>
@@ -189,19 +118,16 @@ export default function FinalizarScreen() {
 				<SummaryCard>
 					<InfoGroup>
 						<SectionLabel>Cliente</SectionLabel>
-						<InfoText>{contextOrcamento.cliente.nome}</InfoText>
-						<InfoText>{contextOrcamento.cliente.telefone}</InfoText>
+						<InfoText>{cliente.nome}</InfoText>
+						<InfoText>{cliente.telefone}</InfoText>
 					</InfoGroup>
 
 					<InfoGroup>
 						<SectionLabel>Veículo</SectionLabel>
 						<InfoText>
-							{contextOrcamento.veiculo.marca}{" "}
-							{contextOrcamento.veiculo.modelo}
+							{veiculo.marca} {veiculo.modelo}
 						</InfoText>
-						<InfoText>
-							Placa: {contextOrcamento.veiculo.placa}
-						</InfoText>
+						<InfoText>Placa: {veiculo.placa}</InfoText>
 					</InfoGroup>
 
 					<Divider />

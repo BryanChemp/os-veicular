@@ -34,7 +34,7 @@ export function CustomDrawer(props: any) {
 				<MenuText>Início</MenuText>
 			</MenuItem>
 
-			<MenuItem onPress={() => props.navigation.navigate("")}>
+			<MenuItem onPress={() => props.navigation.navigate("ListaOrcamentosFinalizados")}>
 				<Icon icon={faList} />
 				<MenuText>Lista de orçamentos</MenuText>
 			</MenuItem>

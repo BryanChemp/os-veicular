@@ -1,27 +1,52 @@
-import React, { useContext, useEffect } from "react";
+import React from "react";
 import { Platform, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import styled from "styled-components/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Campo } from "../components/Campos";
-import {
-	Cliente,
-	OrcamentoContext,
-	Veiculo,
-} from "../context/ContextOrcamento";
+import { useOrcamentoAtualStore } from "../store/useOrcamentoStore";
+
+const initialCliente = {
+	nome: "",
+	telefone: "",
+	email: "",
+	endereco: "",
+};
+
+const initialVeiculo = {
+	marca: "",
+	modelo: "",
+	placa: "",
+	cor: "",
+	ano: "",
+};
 
 type CampoCliente = {
 	label: string;
-	campo: keyof Cliente;
+	campo: keyof typeof initialCliente;
 };
 
 type CampoVeiculo = {
 	label: string;
-	campo: keyof Veiculo;
+	campo: keyof typeof initialVeiculo;
 };
 
 export default function DadosScreen() {
-	const contextOrcamento = useContext(OrcamentoContext);
+	const { cliente, veiculo, setCliente, setVeiculo } =
+		useOrcamentoAtualStore();
+
+	const atualizarCampoCliente = (
+		campo: keyof typeof initialCliente,
+		valor: string,
+	) => {
+		setCliente({ ...cliente, [campo]: valor });
+	};
+
+	const atualizarCampoVeiculo = (
+		campo: keyof typeof initialVeiculo,
+		valor: string,
+	) => {
+		setVeiculo({ ...veiculo, [campo]: valor });
+	};
 
 	const camposCliente: CampoCliente[] = [
 		{ label: "Nome", campo: "nome" },
@@ -37,67 +62,6 @@ export default function DadosScreen() {
 		{ label: "Cor", campo: "cor" },
 		{ label: "Ano", campo: "ano" },
 	];
-
-	const atualizarCliente = (campo: string, valor: string) => {
-		if (contextOrcamento) {
-			contextOrcamento.setCliente({
-				...contextOrcamento.cliente,
-				[campo]: valor,
-			});
-		}
-	};
-
-	const atualizarVeiculo = (campo: string, valor: string) => {
-		if (contextOrcamento) {
-			contextOrcamento.setVeiculo({
-				...contextOrcamento.veiculo,
-				[campo]: valor,
-			});
-		}
-	};
-
-	useEffect(() => {
-		const salvarDados = async () => {
-			try {
-				await AsyncStorage.setItem(
-					"@dadosOrcamento",
-					JSON.stringify({
-						cliente: contextOrcamento?.cliente,
-						veiculo: contextOrcamento?.veiculo,
-					}),
-				);
-			} catch (error) {
-				console.log("Erro ao salvar", error);
-			}
-		};
-
-		if (contextOrcamento?.cliente && contextOrcamento?.veiculo) {
-			salvarDados();
-		}
-	}, [contextOrcamento?.cliente, contextOrcamento?.veiculo]);
-
-	useEffect(() => {
-		const carregarDados = async () => {
-			try {
-				const dadosInseridos =
-					await AsyncStorage.getItem("@dadosOrcamento");
-				if (dadosInseridos) {
-					const { cliente, veiculo } = JSON.parse(dadosInseridos) as {
-						cliente: Cliente;
-						veiculo: Veiculo;
-					};
-
-					if (contextOrcamento) {
-						contextOrcamento.setCliente(cliente);
-						contextOrcamento.setVeiculo(veiculo);
-					}
-				}
-			} catch (error) {
-				console.log("Erro ao carregar dados", error);
-			}
-		};
-		carregarDados();
-	}, []);
 
 	return (
 		<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -118,9 +82,9 @@ export default function DadosScreen() {
 						<Campo
 							key={campo.label}
 							label={campo.label}
-							value={contextOrcamento?.cliente[campo.campo] || ""}
+							value={cliente[campo.campo] || ""}
 							onChangeText={(text) =>
-								atualizarCliente(campo.campo, text)
+								atualizarCampoCliente(campo.campo, text)
 							}
 						/>
 					))}
@@ -136,9 +100,9 @@ export default function DadosScreen() {
 						<Campo
 							key={campo.label}
 							label={campo.label}
-							value={contextOrcamento?.veiculo[campo.campo] || ""}
+							value={veiculo[campo.campo] || ""}
 							onChangeText={(text) =>
-								atualizarVeiculo(campo.campo, text)
+								atualizarCampoVeiculo(campo.campo, text)
 							}
 						/>
 					))}
@@ -156,7 +120,7 @@ const ScrollContainer = styled(KeyboardAwareScrollView).attrs({
 	},
 })`
 	flex: 1;
-	background-color: #F8F9FA;
+	background-color: #f8f9fa;
 `;
 
 const SectionHeader = styled.View`
@@ -183,5 +147,5 @@ const Title = styled.Text`
 
 const FieldsWrapper = styled.View`
 	margin-bottom: 8px;
-  gap: 16px;
+	gap: 16px;
 `;
